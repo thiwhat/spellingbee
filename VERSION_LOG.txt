@@ -69,7 +69,23 @@ v1.0.0-mac  (2026)                               [CURRENT]
   Web (Render — https://spellingbee-nlw4.onrender.com)
 ─────────────────────────────────────────────────────────────
 
-v1.0.4-web  (2026)                               [CURRENT]
+v1.0.8-web  (2026)                               [CURRENT]
+  • แก้ iOS Safari เสียงไม่ออก — initAudioCtx ใน HTML onclick โดยตรง
+    async function ทำให้ initAudioCtx ไม่ได้อยู่ใน gesture จริงๆ
+    แก้โดยใส่ initAudioCtx() เป็น inline onclick ทุกปุ่มใน HTML
+    onclick="initAudioCtx();hearWord()" — guarantee sync before async
+  File: spellingbee-web/index.html
+
+v1.0.5-web  (2026)
+  • แก้ iOS Safari เสียงไม่ออก — Silent Buffer Trick
+      สร้าง AudioContext + เล่น silent buffer 1 sample
+      ทันทีใน touchstart (ยังอยู่ใน gesture context)
+      ทำให้ iOS ยอมให้ AudioContext ทำงานได้ต่อเนื่อง
+      Path A: decodeAudioData + BufferSource (iOS/Android/Desktop)
+      Path B: Web Speech API fallback (ถ้า Path A ล้มเหลว)
+  File: spellingbee-web/index.html
+
+v1.0.4-web  (2026)
   • แก้ iOS Safari เสียงไม่ออก — เปลี่ยนจาก Audio() blob เป็น
     AudioContext.decodeAudioData + BufferSource (iOS-safe)
   • ลบ speakLetters (สะกดทีละตัว) ออกจาก web version
