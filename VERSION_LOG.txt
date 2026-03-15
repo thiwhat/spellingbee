@@ -69,7 +69,15 @@ v1.0.0-mac  (2026)                               [CURRENT]
   Web (Render — https://spellingbee-nlw4.onrender.com)
 ─────────────────────────────────────────────────────────────
 
-v1.0.8-web  (2026)                               [CURRENT]
+v1.0.9-web  (2026)                               [CURRENT]
+  • เปลี่ยน architecture iOS ใหม่ทั้งหมด
+    iOS Safari:      Web Speech API (browser voice) — ไม่ต้องผ่าน server
+    Android/Desktop: edge-tts Ava Neural (เหมือนเดิม)
+    Detection: /iPhone|iPad|iPod/i บน userAgent
+    เหตุผล: iOS Safari บล็อก network-fetched audio ทุกรูปแบบ (Apple policy)
+  File: spellingbee-web/index.html
+
+v1.0.8-web  (2026)
   • แก้ iOS Safari เสียงไม่ออก — initAudioCtx ใน HTML onclick โดยตรง
     async function ทำให้ initAudioCtx ไม่ได้อยู่ใน gesture จริงๆ
     แก้โดยใส่ initAudioCtx() เป็น inline onclick ทุกปุ่มใน HTML

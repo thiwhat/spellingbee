@@ -524,7 +524,7 @@
   <div id="title-section" class="card">
     <h1>🐝 Spelling Bee Trainer</h1>
     <div class="subtitle">Twin Edition</div>
-    <div class="subtitle" id="version-lbl" style="font-size:10px;margin-top:2px;color:#AAAAAA">v1.0.8-web</div>
+    <div class="subtitle" id="version-lbl" style="font-size:10px;margin-top:2px;color:#AAAAAA">v1.0.9-web</div>
     <div id="score-lbl">Score: 0 / 0 (0%)</div>
   </div>
 
@@ -583,16 +583,16 @@
 
   <!-- Action buttons row 1 -->
   <div class="btn-row">
-    <button class="action-btn btn-audio" onclick="initAudioCtx();hearWord()"       id="btn-hear">🔊 Hear Word</button>
-    <button class="action-btn btn-audio" onclick="initAudioCtx();repeatWord()"     id="btn-repeat">🔁 Repeat</button>
-    <button class="action-btn btn-hint"  onclick="initAudioCtx();showDefinition()" id="btn-def">📖 Definition</button>
-    <button class="action-btn btn-hint"  onclick="initAudioCtx();showSentence()"   id="btn-sent">💬 Sentence</button>
+    <button class="action-btn btn-audio" onclick="hearWord()"       id="btn-hear">🔊 Hear Word</button>
+    <button class="action-btn btn-audio" onclick="repeatWord()"     id="btn-repeat">🔁 Repeat</button>
+    <button class="action-btn btn-hint"  onclick="showDefinition()" id="btn-def">📖 Definition</button>
+    <button class="action-btn btn-hint"  onclick="showSentence()"   id="btn-sent">💬 Sentence</button>
   </div>
 
   <!-- Action buttons row 2 -->
   <div class="btn-row">
-    <button class="action-btn btn-submit" onclick="initAudioCtx();submitAnswer()"  id="btn-submit" style="flex:2">✅ Submit [Enter]</button>
-    <button class="action-btn btn-next"   onclick="initAudioCtx();nextWord()"      id="btn-next"   style="flex:1">➡️ Next Word</button>
+    <button class="action-btn btn-submit" onclick="submitAnswer()"  id="btn-submit" style="flex:2">✅ Submit [Enter]</button>
+    <button class="action-btn btn-next"   onclick="nextWord()"      id="btn-next"   style="flex:1">➡️ Next Word</button>
   </div>
 
   <!-- Result -->
@@ -616,7 +616,7 @@
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────────
-const VERSION = "1.0.8-web";
+const VERSION = "1.0.9-web";
 const API     = "";  // same origin; set to "http://localhost:8000" for local dev
 
 const WORD_SETS = {
@@ -722,40 +722,26 @@ async function ensureWords(key) {
 
 // ── TTS Audio Engine ──────────────────────────────────────────────────────────
 //
-// iOS Safari Audio Policy:
-//   - AudioContext must be CREATED inside a user gesture (tap/click)
-//   - A real sound (even silent) must PLAY inside that same gesture
-//   - After that, async fetch + decodeAudioData works fine
-//   - Audio() blob URL does NOT work on iOS even after unlock
+// Architecture:
+//   iOS Safari   → Web Speech API (SpeechSynthesis) — browser voice
+//                  Reason: iOS blocks all network-fetched audio regardless of
+//                  AudioContext unlock method. This is Apple policy, not a bug.
+//   Android/Desktop → edge-tts via server (Ava Neural voice)
 //
-// Solution: each audio button calls initAudioCtx() SYNCHRONOUSLY first
-// (still in gesture), then calls speak() which is async.
+// Detection: /iPhone|iPad|iPod/i on userAgent
 
-let currentSource  = null;
-let audioInitialized = false;
+const IS_IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 function initAudioCtx() {
-  // Called synchronously from button onclick — still inside user gesture
-  if (audioInitialized) {
-    // Resume if suspended (iOS can re-suspend after inactivity)
-    if (audioCtx && audioCtx.state === "suspended") {
-      audioCtx.resume();
-    }
-    return;
-  }
+  // No-op on iOS — Web Speech needs no unlock
+  // On Android/Desktop: create AudioContext for edge-tts playback
+  if (IS_IOS || audioCtx) return;
   try {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    // Play a real silent buffer — iOS requires actual playback in gesture
-    const silentBuf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
-    const silentSrc = audioCtx.createBufferSource();
-    silentSrc.buffer = silentBuf;
-    silentSrc.connect(audioCtx.destination);
-    silentSrc.start(0);
-    audioInitialized = true;
-  } catch(e) {
-    console.warn("[Audio] initAudioCtx failed:", e);
-  }
+  } catch(e) {}
 }
+
+let currentSource = null;
 
 function stopAudio() {
   if (currentSource) {
@@ -771,64 +757,72 @@ function stopAudio() {
 }
 
 async function speak(text) {
-  // NOTE: initAudioCtx() must be called BEFORE this function (in button onclick)
   stopAudio();
   spellCancelled = false;
   const dot = document.getElementById("status-line");
   dot.innerHTML = `Speaking… <span class="speaking-dot"></span>`;
 
-  // ── Path A: AudioContext (iOS + Android + Desktop) ────────────────────────
-  if (audioCtx && audioInitialized) {
+  // ── iOS: Web Speech API (only reliable option on iOS Safari) ─────────────
+  if (IS_IOS) {
+    dot.innerHTML = "";
     try {
-      if (audioCtx.state === "suspended") await audioCtx.resume();
-
-      const r = await fetch(`${API}/api/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text })
-      });
-      if (!r.ok) throw new Error("TTS error " + r.status);
-
-      const arrayBuf = await r.arrayBuffer();
-
-      // decodeAudioData works reliably on iOS after AudioContext is initialized
-      const audioBuf = await new Promise((resolve, reject) => {
-        audioCtx.decodeAudioData(arrayBuf, resolve, reject);
-      });
-
-      if (currentSource) {
-        try { currentSource.stop(); } catch(e) {}
-      }
-      const source = audioCtx.createBufferSource();
-      source.buffer = audioBuf;
-      source.connect(audioCtx.destination);
-      source.onended = () => {
-        dot.innerHTML = "";
-        if (currentSource === source) currentSource = null;
-      };
-      source.start(0);
-      currentSource = source;
-      currentAudio  = { pause: () => { try { source.stop(); } catch(e){} } };
-      return;
-
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang  = "en-US";
+      utt.rate  = 0.85;
+      // Pick best available English voice on iOS (Samantha, etc.)
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice = voices.find(v => v.lang.startsWith("en") && v.localService)
+                   || voices.find(v => v.lang.startsWith("en"))
+                   || null;
+      if (enVoice) utt.voice = enVoice;
+      utt.onend = () => { dot.innerHTML = ""; };
+      utt.onerror = () => { dot.innerHTML = ""; };
+      window.speechSynthesis.speak(utt);
     } catch(e) {
-      console.warn("[TTS] AudioContext path failed:", e.message);
       dot.innerHTML = "";
-      // fall through to Web Speech
     }
+    return;
   }
 
-  // ── Path B: Web Speech API (fallback) ─────────────────────────────────────
-  dot.innerHTML = "";
+  // ── Android/Desktop: edge-tts Ava via server ─────────────────────────────
   try {
-    window.speechSynthesis.cancel();
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.lang = "en-US";
-    utt.rate = 0.85;
-    utt.onend = () => { dot.innerHTML = ""; };
-    window.speechSynthesis.speak(utt);
+    const r = await fetch(`${API}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (!r.ok) throw new Error("TTS error " + r.status);
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      if (currentAudio === audio) currentAudio = null;
+      dot.innerHTML = "";
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      dot.innerHTML = "";
+    };
+    audio.play().catch(() => {
+      // Fallback to Web Speech if Audio() fails
+      dot.innerHTML = "";
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = "en-US"; utt.rate = 0.85;
+      window.speechSynthesis.speak(utt);
+    });
   } catch(e) {
+    // Network/server error — fallback to Web Speech
     dot.innerHTML = "";
+    try {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = "en-US"; utt.rate = 0.85;
+      window.speechSynthesis.speak(utt);
+    } catch(e2) {}
   }
 }
 
@@ -1157,7 +1151,6 @@ function updateAdaptive(correct) {
 
 // ── Keyboard handling ─────────────────────────────────────────────────────────
 function onKeyDown(e) {
-  initAudioCtx();   // keyboard is also a gesture on iOS
   if (mode === "competition" && answered) {
     if (["Backspace","Delete"].includes(e.key) ||
         (e.ctrlKey||e.metaKey) && ["z","Z","x","X"].includes(e.key)) {
