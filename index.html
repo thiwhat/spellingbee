@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐝 Spelling Bee Trainer — Twin Edition</title>
+<style>
+  /* ── Variables ──────────────────────────────────────────── */
+  :root {
+    --bg:        #FFF8E7;
+    --card:      #FFFFFF;
+    --accent:    #FFB830;
+    --comp:      #E53935;
+    --review:    #5C6BC0;
+    --correct:   #2E7D32;
+    --wrong:     #E53935;
+    --text:      #1A1A2E;
+    --muted:     #777777;
+    --border:    #E0D8C8;
+    --p1bg:      #E3F2FD;
+    --p1col:     #1565C0;
+    --p2bg:      #F3E5F5;
+    --p2col:     #6A1B9A;
+    --btn-audio: #FFE0B2;
+    --btn-hint:  #BBDEFB;
+    --btn-submit:#2E7D32;
+    --shadow:    0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────── */
+  #app {
+    width: 100%;
+    max-width: 780px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ── Profile bar ─────────────────────────────────────────── */
+  #profile-bar {
+    display: flex;
+    gap: 8px;
+  }
+
+  .player-card {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .player-card.p1 { background: var(--p1bg); border-color: #BBDEFB; }
+  .player-card.p2 { background: var(--p2bg); border-color: #E1BEE7; }
+  .player-card.active.p1 { border-color: var(--p1col); box-shadow: 0 0 0 2px rgba(21,101,192,0.2); }
+  .player-card.active.p2 { border-color: var(--p2col); box-shadow: 0 0 0 2px rgba(106,27,154,0.2); }
+
+  .player-name {
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .player-card.p1 .player-name { color: var(--p1col); }
+  .player-card.p2 .player-name { color: var(--p2col); }
+
+  .player-stats {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 9px;
+    color: #8D6E63;
+    margin-top: 3px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .stat-sep { color: #BCB0A0; }
+
+  .active-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--text);
+    font-size: 8px;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 4px;
+  }
+
+  .edit-name-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.6;
+    padding: 0 2px;
+  }
+  .edit-name-btn:hover { opacity: 1; }
+
+  /* ── Title ──────────────────────────────────────────────── */
+  #title-section {
+    text-align: center;
+    padding: 8px 0 4px;
+  }
+
+  #title-section h1 {
+    font-family: 'Georgia', serif;
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--text);
+  }
+
+  #title-section .subtitle {
+    font-family: 'Georgia', serif;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  #score-lbl {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Word sets ───────────────────────────────────────────── */
+  #wordset-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .wordset-btn {
+    flex: 1;
+    padding: 7px 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--muted);
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .wordset-btn.active-general { background: #FFF3CD; border-color: #FFB830; color: #7A5800; }
+  .wordset-btn.active-trap    { background: #FFEBEE; border-color: #E53935; color: #B71C1C; }
+  .wordset-btn.active-final   { background: #E8F5E9; border-color: #43A047; color: #1B5E20; }
+
+  #twin-turn-btn {
+    padding: 7px 12px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--muted);
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  #twin-turn-btn.on { background: #E8F5E9; border-color: #43A047; color: #1B5E20; }
+
+  /* ── Mode buttons ───────────────────────────────────────── */
+  #mode-bar {
+    display: flex;
+    gap: 6px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 8px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--muted);
+    transition: all 0.15s;
+    text-align: center;
+  }
+
+  .mode-btn.active-practice    { background: #FFF3CD; border-color: var(--accent); color: #7A5800; }
+  .mode-btn.active-competition { background: #FFEBEE; border-color: var(--comp);   color: #B71C1C; }
+  .mode-btn.active-review      { background: #E8EAF6; border-color: var(--review); color: #283593; }
+  .mode-btn:disabled           { opacity: 0.45; cursor: not-allowed; }
+
+  #comp-warning {
+    display: none;
+    background: #FFEBEE;
+    border: 1px solid #FFCDD2;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    color: #B71C1C;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  /* ── Badges ─────────────────────────────────────────────── */
+  #badge-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .badge {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 9px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+  }
+
+  .badge.adaptive  { background: #E3F2FD; border-color: #90CAF9; color: #1565C0; }
+  .badge.missed    { background: #FFEBEE; border-color: #FFCDD2; color: #B71C1C; }
+
+  /* ── Status ribbon ──────────────────────────────────────── */
+  #status-ribbon {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding: 4px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Progress bar ───────────────────────────────────────── */
+  #progress-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  #progress-wrap {
+    flex: 1;
+    position: relative;
+    height: 18px;
+    background: #D7CFC4;
+    border-radius: 4px;
+    border: 1px solid #B0B0B0;
+    overflow: hidden;
+  }
+
+  #progress-fill {
+    height: 100%;
+    background: #43A047;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  #progress-pct {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 9px;
+    font-weight: bold;
+    color: var(--text);
+    pointer-events: none;
+  }
+
+  #reset-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Helvetica Neue', sans-serif;
+    white-space: nowrap;
+  }
+
+  #reset-btn:hover { background: #FFF3CD; border-color: var(--accent); }
+
+  /* ── Status line ────────────────────────────────────────── */
+  #status-line {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    min-height: 18px;
+    padding: 2px 0;
+  }
+
+  /* ── Hint card ──────────────────────────────────────────── */
+  #hint-card {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+  }
+
+  #hint-text {
+    font-family: 'Georgia', serif;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text);
+    flex: 1;
+    line-height: 1.5;
+  }
+
+  #hint-text.hidden-hint {
+    filter: blur(6px);
+    user-select: none;
+    pointer-events: none;
+  }
+
+  #hint-toggle-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    cursor: pointer;
+    font-size: 10px;
+    font-family: 'Helvetica Neue', sans-serif;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ── Entry ──────────────────────────────────────────────── */
+  #entry-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  #answer-input {
+    font-family: 'Courier New', monospace;
+    font-size: 26px;
+    font-weight: bold;
+    width: 100%;
+    max-width: 400px;
+    padding: 10px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+    background: var(--card);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+    letter-spacing: 2px;
+  }
+
+  #answer-input:focus { border-color: var(--accent); }
+  #answer-input.flash-no { border-color: var(--comp) !important; background: #FFF0F0; }
+
+  /* ── Button rows ─────────────────────────────────────────── */
+  .btn-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 9px 6px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--text);
+    transition: all 0.12s;
+    text-align: center;
+  }
+
+  .action-btn:hover:not(:disabled) { filter: brightness(0.93); transform: translateY(-1px); }
+  .action-btn:active:not(:disabled) { transform: translateY(0); }
+  .action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-audio  { background: var(--btn-audio); }
+  .btn-hint   { background: var(--btn-hint);  }
+  .btn-submit { background: var(--btn-submit); color: #fff; border-color: #1B5E20; }
+  .btn-next   { background: var(--btn-audio); }
+  .btn-util   { background: var(--card); font-size: 10px; padding: 6px; }
+
+  /* ── Result ─────────────────────────────────────────────── */
+  #result-card {
+    text-align: center;
+    min-height: 56px;
+  }
+
+  #result-lbl {
+    font-family: 'Georgia', serif;
+    font-size: 16px;
+    font-weight: bold;
+    min-height: 22px;
+  }
+
+  #correct-lbl {
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--review);
+    letter-spacing: 3px;
+    min-height: 28px;
+    margin-top: 2px;
+  }
+
+  #watchout-lbl {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 11px;
+    font-style: italic;
+    color: #8D6E63;
+    margin-top: 2px;
+    min-height: 16px;
+  }
+
+  /* ── Origin ─────────────────────────────────────────────── */
+  #origin-lbl {
+    font-family: 'Helvetica Neue', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    font-style: italic;
+    min-height: 14px;
+    padding-right: 4px;
+  }
+
+  /* ── TTS spinner ─────────────────────────────────────────── */
+  .speaking-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    background: var(--accent);
+    border-radius: 50%;
+    margin-left: 5px;
+    animation: pulse 0.8s infinite alternate;
+    vertical-align: middle;
+  }
+
+  @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+  /* ── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 500px) {
+    .action-btn { min-width: 60px; font-size: 10px; padding: 8px 4px; }
+    #answer-input { font-size: 20px; }
+    h1 { font-size: 18px !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Profile bar -->
+  <div id="profile-bar">
+    <div class="player-card p1 active" id="card-P1" onclick="switchPlayer('P1')">
+      <div class="player-name">
+        <span id="name-P1">Twin P</span>
+        <span class="active-badge" id="active-badge-P1">NOW</span>
+        <button class="edit-name-btn" onclick="event.stopPropagation();editName('P1')" title="Edit name">✏️</button>
+      </div>
+      <div class="player-stats" id="stats-P1">
+        <span id="sess-P1">S: 0/0</span><span class="stat-sep">│</span>
+        <span id="total-P1">T: 0/0</span><span class="stat-sep">│</span>
+        <span id="missed-badge-P1">❌ 0</span>
+      </div>
+    </div>
+    <div class="player-card p2" id="card-P2" onclick="switchPlayer('P2')">
+      <div class="player-name" style="color:var(--p2col)">
+        <span id="name-P2">Twin Q</span>
+        <span class="active-badge" id="active-badge-P2" style="display:none">NOW</span>
+        <button class="edit-name-btn" onclick="event.stopPropagation();editName('P2')" title="Edit name">✏️</button>
+      </div>
+      <div class="player-stats" id="stats-P2">
+        <span id="sess-P2">S: 0/0</span><span class="stat-sep">│</span>
+        <span id="total-P2">T: 0/0</span><span class="stat-sep">│</span>
+        <span id="missed-badge-P2">❌ 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div id="title-section" class="card">
+    <h1>🐝 Spelling Bee Trainer</h1>
+    <div class="subtitle">Twin Edition</div>
+    <div id="score-lbl">Score: 0 / 0 (0%)</div>
+  </div>
+
+  <!-- Word set selector -->
+  <div class="card" id="wordset-bar">
+    <button class="wordset-btn active-general" id="ws-general" onclick="switchWordSet('general')">📚 General Practice</button>
+    <button class="wordset-btn" id="ws-trap"    onclick="switchWordSet('trap')">⚠️ Trap Words</button>
+    <button class="wordset-btn" id="ws-final"   onclick="switchWordSet('final')">🏆 Final Round</button>
+    <button id="twin-turn-btn" onclick="toggleTwinTurn()">👥 Turn: Manual</button>
+  </div>
+
+  <!-- Mode bar -->
+  <div class="card" style="display:flex;flex-direction:column;gap:8px">
+    <div id="mode-bar">
+      <button class="mode-btn active-practice"  id="mode-practice"    onclick="switchMode('practice')">⚡ Practice</button>
+      <button class="mode-btn"                  id="mode-competition" onclick="switchMode('competition')">🏆 Competition</button>
+      <button class="mode-btn"                  id="mode-review"      onclick="switchMode('review')" disabled>📖 Review Missed</button>
+    </div>
+    <div id="comp-warning">⚠️ Competition Mode — No editing allowed after submission!</div>
+  </div>
+
+  <!-- Badges + status ribbon -->
+  <div class="card" style="display:flex;flex-direction:column;gap:6px">
+    <div id="badge-row">
+      <span class="badge adaptive" id="adaptive-badge">📊 Beginner</span>
+      <span class="badge"          id="grade-badge">Grade 3</span>
+      <span class="badge missed"   id="missed-count-badge">❌ Missed: 0</span>
+    </div>
+    <div id="status-ribbon">Practice · General Practice · Twin P · Manual</div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="card" id="progress-section">
+    <div id="progress-wrap">
+      <div id="progress-fill"></div>
+      <div id="progress-pct">0%</div>
+    </div>
+    <button id="reset-btn" onclick="resetProgress()">🔄 Reset Progress</button>
+  </div>
+
+  <!-- Status line -->
+  <div id="status-line">Press <b>Hear Word</b> to start!</div>
+
+  <!-- Hint card -->
+  <div class="card" id="hint-card">
+    <div id="hint-text" class="hidden-hint">—</div>
+    <button id="hint-toggle-btn" onclick="toggleHint()">👁 Reveal</button>
+  </div>
+
+  <!-- Answer entry -->
+  <div id="entry-wrap">
+    <input id="answer-input" type="text" autocomplete="off" autocorrect="off"
+           spellcheck="false" placeholder="Type your spelling…"
+           onkeydown="onKeyDown(event)" oninput="onInput(event)">
+  </div>
+
+  <!-- Action buttons row 1 -->
+  <div class="btn-row">
+    <button class="action-btn btn-audio" onclick="hearWord()"       id="btn-hear">🔊 Hear Word</button>
+    <button class="action-btn btn-audio" onclick="repeatWord()"     id="btn-repeat">🔁 Repeat</button>
+    <button class="action-btn btn-hint"  onclick="showDefinition()" id="btn-def">📖 Definition</button>
+    <button class="action-btn btn-hint"  onclick="showSentence()"   id="btn-sent">💬 Sentence</button>
+  </div>
+
+  <!-- Action buttons row 2 -->
+  <div class="btn-row">
+    <button class="action-btn btn-submit" onclick="submitAnswer()"  id="btn-submit" style="flex:2">✅ Submit [Enter]</button>
+    <button class="action-btn btn-next"   onclick="nextWord()"      id="btn-next"   style="flex:1">➡️ Next Word</button>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="result-card">
+    <div id="result-lbl"></div>
+    <div id="correct-lbl"></div>
+    <div id="watchout-lbl"></div>
+  </div>
+
+  <!-- Utility row -->
+  <div class="btn-row">
+    <button class="action-btn btn-util" onclick="clearMissed()"  id="btn-clear-missed">🗑 Clear Missed</button>
+    <button class="action-btn btn-util" onclick="toggleSpell()"  id="btn-spell">🔤 Spelling: ON</button>
+    <button class="action-btn btn-util" style="color:var(--comp)" onclick="if(confirm('Exit?'))window.close()">🚪 Exit</button>
+  </div>
+
+  <!-- Origin -->
+  <div id="origin-lbl"></div>
+
+</div><!-- /app -->
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────────
+const VERSION = "2.2.0-web";
+const API     = "";  // same origin; set to "http://localhost:8000" for local dev
+
+const WORD_SETS = {
+  general: "📚 General Practice",
+  trap:    "⚠️ Trap Words",
+  final:   "🏆 Final Round",
+};
+
+const ADAPTIVE_LEVELS = [
+  { label:"Beginner",     diffs:["easy"],                    grades:["3"] },
+  { label:"Intermediate", diffs:["easy","medium"],           grades:["3","4"] },
+  { label:"Advanced",     diffs:["easy","medium","hard"],    grades:["3","4","5"] },
+];
+const LEVEL_UP_STREAK=3, LEVEL_UP_ACC=0.70, LEVEL_DOWN_STREAK=2, LEVEL_DOWN_ACC=0.40;
+
+const WATCH_OUT = {
+  ie:"'ie' or 'ei'?", ei:"'ei' or 'ie'?", tion:"ends in '-tion'",
+  sion:"ends in '-sion'", ous:"ends in '-ous'", able:"ends in '-able'",
+  ible:"ends in '-ible'", ance:"ends in '-ance'", ence:"ends in '-ence'",
+  ght:"contains '-ght'", ph:"contains 'ph'", silent:"has a silent letter",
+};
+
+// ── State ──────────────────────────────────────────────────────────────────────
+let wordCache = {};           // set_key → word array
+let currentWord  = null;
+let answered     = false;
+let twinTurn     = false;
+let spellEnabled = true;
+let mode         = "practice";
+let wordSetKey   = "general";
+let activePid    = "P1";
+let prevMode     = "practice";
+let sessionScore = 0, sessionTotal = 0;
+let switching    = false;
+let spellCancelled = false;
+let currentAudio   = null;   // Audio object playing now
+let currentUtter   = null;   // SpeechSynthesisUtterance for spelling
+
+// ── Profiles (localStorage) ────────────────────────────────────────────────────
+function blankProfile(name) {
+  return {
+    name,
+    missed_words: {},
+    passed_words: { general:[], trap:[], final:[] },
+    adaptive: { level:0, streak:0 },
+    stats: { total_attempts:0, total_correct:0, total_incorrect:0, sessions:0 },
+  };
+}
+
+function loadProfiles() {
+  try {
+    const raw = localStorage.getItem("bee_profiles");
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    // migrate
+    for (const pid of ["P1","P2"]) {
+      if (!d.profiles[pid]) d.profiles[pid] = blankProfile(pid==="P1"?"Twin P":"Twin Q");
+      const p = d.profiles[pid];
+      if (!p.adaptive) p.adaptive = { level:0, streak:0 };
+      if (!p.passed_words) p.passed_words = { general:[], trap:[], final:[] };
+      for (const ws of ["general","trap","final"])
+        if (!p.passed_words[ws]) p.passed_words[ws] = [];
+    }
+    return d;
+  } catch(e) { return null; }
+}
+
+function saveProfiles() {
+  localStorage.setItem("bee_profiles", JSON.stringify(profiles));
+}
+
+let profiles = loadProfiles() || {
+  active_player: "P1",
+  profiles: {
+    P1: blankProfile("Twin P"),
+    P2: blankProfile("Twin Q"),
+  }
+};
+
+activePid = profiles.active_player || "P1";
+
+// ── Shortcuts to active profile ────────────────────────────────────────────────
+const ap  = () => profiles.profiles[activePid];
+const getMissed  = () => ap().missed_words  || {};
+const getPassed  = () => ap().passed_words[wordSetKey] || [];
+const getAdaptive= () => ap().adaptive      || { level:0, streak:0 };
+
+// ── Load words from server ─────────────────────────────────────────────────────
+async function ensureWords(key) {
+  if (wordCache[key]) return wordCache[key];
+  setStatus("Loading word list…", "#888");
+  try {
+    const r = await fetch(`${API}/api/words/${key}`);
+    if (!r.ok) throw new Error(r.statusText);
+    wordCache[key] = await r.json();
+    return wordCache[key];
+  } catch(e) {
+    setStatus("❌ Could not load words. Is the server running?", "red");
+    return [];
+  }
+}
+
+// ── TTS (edge-tts via server) ──────────────────────────────────────────────────
+function stopAudio() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.src = "";
+    currentAudio = null;
+  }
+  spellCancelled = true;
+  window.speechSynthesis && window.speechSynthesis.cancel();
+}
+
+async function speak(text) {
+  stopAudio();
+  spellCancelled = false;
+  const dot = document.getElementById("status-line");
+  dot.innerHTML = `Speaking… <span class="speaking-dot"></span>`;
+  try {
+    const r = await fetch(`${API}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (!r.ok) throw new Error("TTS server error");
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    currentAudio = new Audio(url);
+    currentAudio.onended = () => {
+      URL.revokeObjectURL(url);
+      currentAudio = null;
+      dot.innerHTML = "";
+    };
+    currentAudio.play();
+  } catch(e) {
+    // Fallback to Web Speech API
+    dot.innerHTML = "";
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = "en-US"; utt.rate = 0.85;
+    window.speechSynthesis.speak(utt);
+  }
+}
+
+function speakWord(word) {
+  const pos = ap().missed_words?.[word]?.part_of_speech || currentWord?.part_of_speech || "";
+  const art = pos==="noun"||pos==="verb"||pos==="adjective"||pos==="adverb"||pos==="pronoun" ? `It is a ${pos}.  ` : "";
+  return speak(`Your word is ${word.toUpperCase()}.  ${art}${word.toUpperCase()}.`);
+}
+
+function speakLetters(word) {
+  if (!spellEnabled || spellCancelled) return;
+  const letters = word.toUpperCase().split("").filter(c => /[A-Z]/.test(c));
+  let i = 0;
+  function next() {
+    if (spellCancelled || i >= letters.length) {
+      // after spelling, Ava repeats word
+      if (!spellCancelled) setTimeout(() => speak(word.toUpperCase() + "."), 300);
+      return;
+    }
+    const utt = new SpeechSynthesisUtterance(letters[i]);
+    utt.lang = "en-US"; utt.rate = 0.7;
+    utt.onend = () => { i++; setTimeout(next, 150); };
+    currentUtter = utt;
+    window.speechSynthesis.speak(utt);
+    i++;
+  }
+  // slight delay after Ava finishes incorrect announcement
+  setTimeout(next, 800);
+}
+
+// ── TTS text builders ──────────────────────────────────────────────────────────
+const ttsHear = w => {
+  const pos = w.part_of_speech ? `It is a ${w.part_of_speech}.  ` : "";
+  return `Your word is ${w.word.toUpperCase()}.  ${pos}${w.word.toUpperCase()}.`;
+};
+const ttsRepeat     = w => `${w.word.toUpperCase()}.`;
+const ttsDef        = w => `The definition is… ${w.definition}`;
+const ttsSent       = w => `Used in a sentence… ${w.sentence}`;
+const ttsCorrect    = w => `Correct!  ${w.toUpperCase()}.`;
+const ttsIncorrect  = w => `Incorrect.  The correct spelling is ${w.toUpperCase()}.`;
+
+// ── Word pool building ─────────────────────────────────────────────────────────
+function buildPool(allWords) {
+  if (mode === "review") return Object.values(getMissed());
+  const passed = new Set(getPassed());
+  let unpassed = allWords.filter(w => !passed.has(w.word));
+  if (!unpassed.length) return [];
+
+  if (wordSetKey === "general") {
+    const adp = getAdaptive();
+    const lvl = ADAPTIVE_LEVELS[adp.level] || ADAPTIVE_LEVELS[0];
+    const filtered = unpassed.filter(w =>
+      lvl.diffs.includes(w.difficulty) && lvl.grades.includes(w.grade));
+    if (filtered.length) unpassed = filtered;
+  }
+
+  const missedKeys = new Set(Object.keys(getMissed()));
+  const boost = unpassed.filter(w => missedKeys.has(w.word));
+  return [...unpassed, ...boost, ...boost];  // 3× missed words
+}
+
+// ── Load next word ─────────────────────────────────────────────────────────────
+async function loadNextWord() {
+  stopAudio();
+  spellCancelled = true;
+  answered  = false;
+  switching = false;
+
+  document.getElementById("answer-input").value = "";
+  document.getElementById("answer-input").disabled = false;
+  document.getElementById("result-lbl").textContent   = "";
+  document.getElementById("correct-lbl").textContent  = "";
+  document.getElementById("watchout-lbl").textContent = "";
+  document.getElementById("origin-lbl").textContent   = "";
+  setHint("—", true);
+  document.getElementById("btn-next").disabled   = false;
+  document.getElementById("btn-submit").disabled = false;
+  if (mode === "competition") document.getElementById("btn-next").disabled = true;
+
+  const allWords = await ensureWords(wordSetKey);
+  const pool = buildPool(allWords);
+
+  if (!pool.length) {
+    if (mode === "review") {
+      setStatus(`🎉 ${ap().name} cleared all missed words!`, "green");
+      switchMode(prevMode);
+      return;
+    }
+    setStatus(`🏆 ${ap().name} mastered ALL words in ${WORD_SETS[wordSetKey]}! Reset to continue.`, "green");
+    speak(`Congratulations ${ap().name}! You have completed ${WORD_SETS[wordSetKey].replace(/[📚⚠️🏆]/g,"")}. Amazing work!`);
+    currentWord = null;
+    return;
+  }
+
+  currentWord = pool[Math.floor(Math.random() * pool.length)];
+  refreshProgress(allWords);
+  refreshAdaptiveBadge();
+  refreshStatusRibbon();
+  setStatus(`Press Hear Word to listen  [${WORD_SETS[wordSetKey]}]`);
+  document.getElementById("origin-lbl").textContent =
+    currentWord.origin ? `Origin: ${currentWord.origin}` : "";
+  document.getElementById("answer-input").focus();
+}
+
+// ── Hear / Repeat / Def / Sentence ────────────────────────────────────────────
+async function hearWord() {
+  if (!currentWord) { await loadNextWord(); return; }
+  speak(ttsHear(currentWord));
+}
+async function repeatWord()     { if (currentWord) speak(ttsRepeat(currentWord)); }
+async function showDefinition() {
+  if (!currentWord) return;
+  const text = ttsDef(currentWord);
+  setHint(currentWord.definition, false);
+  speak(text);
+}
+async function showSentence() {
+  if (!currentWord) return;
+  const text = ttsSent(currentWord);
+  setHint(currentWord.sentence, false);
+  speak(text);
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────────────
+function submitAnswer() {
+  if (answered || !currentWord) return;
+  const guess   = document.getElementById("answer-input").value.trim().toLowerCase();
+  const correct = currentWord.word.toLowerCase();
+  if (!guess) { setStatus("⚠️ Please type your spelling first!", "orange"); return; }
+
+  answered = true;
+  sessionTotal++;
+  document.getElementById("answer-input").disabled = mode === "competition";
+
+  // watch-out note
+  const wKey = Object.keys(WATCH_OUT).find(k => correct.includes(k));
+  document.getElementById("watchout-lbl").textContent = wKey ? `⚠️ ${WATCH_OUT[wKey]}` : "";
+
+  if (guess === correct) {
+    sessionScore++;
+    document.getElementById("result-lbl").style.color = "var(--correct)";
+    document.getElementById("result-lbl").textContent = "✅  Correct!  Well done!";
+    document.getElementById("correct-lbl").textContent = "";
+    speak(ttsCorrect(correct));
+
+    if (mode === "review") {
+      removeMissed(correct);
+    } else {
+      markPassed(correct);
+      removeMissed(correct);
+      updateAdaptive(true);
+    }
+  } else {
+    document.getElementById("result-lbl").style.color = "var(--wrong)";
+    document.getElementById("result-lbl").textContent = "❌  Incorrect.  The correct spelling is:";
+    document.getElementById("correct-lbl").textContent = correct.toUpperCase();
+    addMissed(currentWord);
+    if (mode !== "review") updateAdaptive(false);
+
+    // Announce then spell letters
+    speak(ttsIncorrect(correct)).then
+      ? speak(ttsIncorrect(correct))
+      : speak(ttsIncorrect(correct));
+    if (spellEnabled) {
+      setTimeout(() => {
+        if (!spellCancelled) speakLetters(correct);
+      }, 1200);
+    }
+  }
+
+  updateScoreLbl();
+  refreshProfileBar();
+  refreshMissedBadge();
+
+  if (mode === "competition") {
+    document.getElementById("btn-next").disabled = false;
+  }
+  if (twinTurn && mode !== "competition") {
+    switching = true;
+  }
+
+  saveProfiles();
+}
+
+// ── Next word ──────────────────────────────────────────────────────────────────
+async function nextWord() {
+  stopAudio();
+  spellCancelled = true;
+
+  if (switching) {
+    const other = activePid === "P1" ? "P2" : "P1";
+    flushSession();
+    doSwitchPlayer(other);
+    return;
+  }
+  await loadNextWord();
+}
+
+// ── Player switching ───────────────────────────────────────────────────────────
+function switchPlayer(pid) {
+  if (pid === activePid) return;
+  stopAudio();
+  flushSession();
+  doSwitchPlayer(pid);
+}
+
+function doSwitchPlayer(pid) {
+  activePid = pid;
+  profiles.active_player = pid;
+  sessionScore = sessionTotal = 0;
+  switching = false;
+
+  // Check if new player has missed words in review mode
+  if (mode === "review" && !Object.keys(getMissed()).length) {
+    switchMode(prevMode);
+  }
+
+  refreshProfileBar();
+  refreshMissedBadge();
+  updateScoreLbl();
+  saveProfiles();
+  loadNextWord();
+}
+
+function flushSession() {
+  ap().stats.sessions++;
+  ap().stats.total_attempts += sessionTotal;
+  ap().stats.total_correct  += sessionScore;
+  ap().stats.total_incorrect += (sessionTotal - sessionScore);
+  sessionScore = sessionTotal = 0;
+  saveProfiles();
+  refreshProfileBar();
+}
+
+// ── Mode switching ─────────────────────────────────────────────────────────────
+function switchMode(newMode) {
+  if (newMode === "review") {
+    if (!Object.keys(getMissed()).length) {
+      setStatus("📖 No missed words to review!", "orange"); return;
+    }
+    prevMode = mode;
+  }
+  mode = newMode;
+  document.querySelectorAll(".mode-btn").forEach(b => {
+    b.className = b.className.replace(/active-\w+/,"").trim();
+  });
+  document.getElementById(`mode-${mode}`).classList.add(`active-${mode}`);
+  document.getElementById("comp-warning").style.display = mode==="competition" ? "block" : "none";
+  refreshStatusRibbon();
+  loadNextWord();
+}
+
+// ── Word set switching ─────────────────────────────────────────────────────────
+function switchWordSet(key) {
+  wordSetKey = key;
+  document.querySelectorAll(".wordset-btn").forEach(b => {
+    b.className = b.className.replace(/active-\w+/,"").trim() + " wordset-btn";
+  });
+  document.getElementById(`ws-${key}`).classList.add(`active-${key}`);
+  refreshStatusRibbon();
+  loadNextWord();
+}
+
+// ── Twin turn ─────────────────────────────────────────────────────────────────
+function toggleTwinTurn() {
+  twinTurn = !twinTurn;
+  const btn = document.getElementById("twin-turn-btn");
+  btn.textContent = twinTurn ? "👥 Turn: AUTO" : "👥 Turn: Manual";
+  btn.classList.toggle("on", twinTurn);
+}
+
+// ── Spelling toggle ───────────────────────────────────────────────────────────
+function toggleSpell() {
+  spellEnabled = !spellEnabled;
+  document.getElementById("btn-spell").textContent =
+    spellEnabled ? "🔤 Spelling: ON" : "🔤 Spelling: OFF";
+}
+
+// ── Passed / Missed ───────────────────────────────────────────────────────────
+function markPassed(word) {
+  const arr = ap().passed_words[wordSetKey];
+  if (!arr.includes(word)) arr.push(word);
+}
+function removeMissed(word)  { delete ap().missed_words[word]; }
+function addMissed(wordEntry){ ap().missed_words[wordEntry.word] = wordEntry; }
+
+function clearMissed() {
+  if (!confirm("Clear all missed words for " + ap().name + "?")) return;
+  ap().missed_words = {};
+  saveProfiles();
+  refreshMissedBadge();
+  document.getElementById("mode-review").disabled = true;
+  if (mode === "review") switchMode(prevMode);
+  setStatus("🗑 Missed words cleared.");
+}
+
+// ── Reset progress ─────────────────────────────────────────────────────────────
+function resetProgress() {
+  if (!confirm(`Reset all progress for ${ap().name} in ${WORD_SETS[wordSetKey]}?`)) return;
+  ap().passed_words[wordSetKey] = [];
+  ap().missed_words = {};
+  ap().adaptive = { level:0, streak:0 };
+  saveProfiles();
+  loadNextWord();
+}
+
+// ── Adaptive ──────────────────────────────────────────────────────────────────
+function updateAdaptive(correct) {
+  const adp = ap().adaptive;
+  if (correct) {
+    adp.streak = Math.max(0, (adp.streak||0)) + 1;
+    const acc = sessionTotal > 0 ? sessionScore/sessionTotal : 0;
+    if (adp.streak >= LEVEL_UP_STREAK && acc >= LEVEL_UP_ACC && adp.level < 2) {
+      adp.level++;
+      adp.streak = 0;
+      setStatus(`📈 Level up! Now: ${ADAPTIVE_LEVELS[adp.level].label}`, "var(--correct)");
+    }
+  } else {
+    adp.streak = Math.min(0, (adp.streak||0)) - 1;
+    const acc = sessionTotal > 0 ? sessionScore/sessionTotal : 0;
+    if (Math.abs(adp.streak) >= LEVEL_DOWN_STREAK && acc <= LEVEL_DOWN_ACC && adp.level > 0) {
+      adp.level--;
+      adp.streak = 0;
+      setStatus(`📉 Adjusted difficulty to: ${ADAPTIVE_LEVELS[adp.level].label}`, "orange");
+    }
+  }
+  refreshAdaptiveBadge();
+}
+
+// ── Keyboard handling ─────────────────────────────────────────────────────────
+function onKeyDown(e) {
+  if (mode === "competition" && answered) {
+    if (["Backspace","Delete"].includes(e.key) ||
+        (e.ctrlKey||e.metaKey) && ["z","Z","x","X"].includes(e.key)) {
+      e.preventDefault();
+      flashNoEdit();
+    }
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (!answered) submitAnswer(); else nextWord();
+  }
+}
+
+function onInput(e) {
+  if (mode === "competition" && answered) {
+    // block editing after submission in competition
+    e.target.value = currentWord?.word || e.target.value;
+  }
+}
+
+function flashNoEdit() {
+  const inp = document.getElementById("answer-input");
+  inp.classList.add("flash-no");
+  setTimeout(() => inp.classList.remove("flash-no"), 400);
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────────
+function setStatus(msg, color="var(--muted)") {
+  const el = document.getElementById("status-line");
+  el.innerHTML = msg;
+  el.style.color = color;
+}
+
+function setHint(text, hidden) {
+  const el = document.getElementById("hint-text");
+  el.textContent = text;
+  el.classList.toggle("hidden-hint", hidden);
+  document.getElementById("hint-toggle-btn").textContent = hidden ? "👁 Reveal" : "🙈 Hide";
+}
+
+function toggleHint() {
+  const el = document.getElementById("hint-text");
+  const hidden = el.classList.contains("hidden-hint");
+  setHint(el.textContent, !hidden);
+}
+
+function refreshProfileBar() {
+  for (const pid of ["P1","P2"]) {
+    const p = profiles.profiles[pid];
+    const isActive = pid === activePid;
+    document.getElementById(`card-${pid}`).classList.toggle("active", isActive);
+    document.getElementById(`active-badge-${pid}`).style.display = isActive ? "" : "none";
+    // session vs total
+    const sc = isActive ? sessionScore : p.stats.total_correct;
+    const st = isActive ? sessionTotal : p.stats.total_attempts;
+    const pct = st > 0 ? Math.round(sc/st*100) : 0;
+    document.getElementById(`sess-${pid}`).textContent  = isActive ? `S: ${sessionScore}/${sessionTotal}` : `S: —`;
+    document.getElementById(`total-${pid}`).textContent = `T: ${p.stats.total_correct}/${p.stats.total_attempts}`;
+    document.getElementById(`missed-badge-${pid}`).textContent =
+      `❌ ${Object.keys(p.missed_words).length}`;
+  }
+}
+
+function refreshMissedBadge() {
+  const n = Object.keys(getMissed()).length;
+  document.getElementById("missed-count-badge").textContent = `❌ Missed: ${n}`;
+  document.getElementById("mode-review").disabled = n === 0;
+}
+
+function refreshAdaptiveBadge() {
+  const adp = getAdaptive();
+  const lbl = ADAPTIVE_LEVELS[adp.level]?.label || "Beginner";
+  document.getElementById("adaptive-badge").textContent = `📊 ${lbl}`;
+}
+
+function refreshStatusRibbon() {
+  const modeLabel = { practice:"Practice", competition:"Competition", review:"Review Missed" }[mode];
+  const wsLabel = WORD_SETS[wordSetKey].replace(/[📚⚠️🏆\s]/g,"").trim();
+  const turnLabel = twinTurn ? "AUTO" : "Manual";
+  document.getElementById("status-ribbon").textContent =
+    `${modeLabel}  ·  ${wsLabel}  ·  ${ap().name}  ·  ${turnLabel}`;
+}
+
+async function refreshProgress(allWords) {
+  if (!allWords) allWords = await ensureWords(wordSetKey);
+  const total   = allWords.length;
+  const passed  = getPassed().length;
+  const pct     = total > 0 ? Math.round(passed/total*100) : 0;
+  document.getElementById("progress-fill").style.width = pct + "%";
+  document.getElementById("progress-pct").textContent  = pct + "%";
+}
+
+function updateScoreLbl() {
+  const pct = sessionTotal > 0 ? Math.round(sessionScore/sessionTotal*100) : 0;
+  document.getElementById("score-lbl").textContent =
+    `Score: ${sessionScore} / ${sessionTotal}  (${pct}%)`;
+}
+
+// ── Edit name ─────────────────────────────────────────────────────────────────
+function editName(pid) {
+  const p = profiles.profiles[pid];
+  const n = prompt(`Rename ${p.name}:`, p.name);
+  if (n && n.trim()) {
+    p.name = n.trim();
+    document.getElementById(`name-${pid}`).textContent = n.trim();
+    saveProfiles();
+    refreshStatusRibbon();
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+document.title = `🐝 Spelling Bee Trainer v${VERSION}`;
+document.querySelector("h1").textContent = `🐝 Spelling Bee Trainer`;
+
+refreshProfileBar();
+refreshMissedBadge();
+refreshAdaptiveBadge();
+ensureWords("general").then(() => {
+  loadNextWord();
+});
+</script>
+</body>
+</html>
