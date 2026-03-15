@@ -69,7 +69,18 @@ v1.0.0-mac  (2026)                               [CURRENT]
   Web (Render — https://spellingbee-nlw4.onrender.com)
 ─────────────────────────────────────────────────────────────
 
-v1.0.2-web  (2026)                               [CURRENT]
+v1.0.4-web  (2026)                               [CURRENT]
+  • แก้ iOS Safari เสียงไม่ออก — เปลี่ยนจาก Audio() blob เป็น
+    AudioContext.decodeAudioData + BufferSource (iOS-safe)
+  • ลบ speakLetters (สะกดทีละตัว) ออกจาก web version
+    เหลือเฉพาะ Ava พูดคำหลังตอบผิด
+  File: spellingbee-web/index.html
+
+v1.0.3-web  (2026)
+  • แสดงเลข version บนหน้าเว็บ (ใต้ Twin Edition)
+  File: spellingbee-web/index.html
+
+v1.0.2-web  (2026)
   • แก้ hint (Definition/Sentence) hidden by default
       setHint(text, false) → setHint(text, true)
       ต้องกด Reveal ถึงจะเห็นข้อความ

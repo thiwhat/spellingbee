@@ -524,7 +524,7 @@
   <div id="title-section" class="card">
     <h1>🐝 Spelling Bee Trainer</h1>
     <div class="subtitle">Twin Edition</div>
-    <div class="subtitle" id="version-lbl" style="font-size:10px;margin-top:2px;color:#AAAAAA">v1.0.3-web</div>
+    <div class="subtitle" id="version-lbl" style="font-size:10px;margin-top:2px;color:#AAAAAA">v1.0.4-web</div>
     <div id="score-lbl">Score: 0 / 0 (0%)</div>
   </div>
 
@@ -616,7 +616,7 @@
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────────
-const VERSION = "1.0.3-web";
+const VERSION = "1.0.4-web";
 const API     = "";  // same origin; set to "http://localhost:8000" for local dev
 
 const WORD_SETS = {
@@ -723,12 +723,11 @@ async function ensureWords(key) {
 // ── TTS (edge-tts via server) ──────────────────────────────────────────────────
 function stopAudio() {
   if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.src = "";
+    try { currentAudio.pause(); } catch(e) {}
     currentAudio = null;
   }
   spellCancelled = true;
-  window.speechSynthesis && window.speechSynthesis.cancel();
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch(e) {}
 }
 
 // ── iOS AudioContext unlock ────────────────────────────────────────────────────
@@ -745,43 +744,47 @@ document.addEventListener("touchstart", unlockAudio, { once: true });
 document.addEventListener("mousedown",  unlockAudio, { once: true });
 
 async function speak(text) {
-  unlockAudio();   // ensure AudioContext is alive before fetching
+  unlockAudio();
   stopAudio();
   spellCancelled = false;
   const dot = document.getElementById("status-line");
   dot.innerHTML = `Speaking… <span class="speaking-dot"></span>`;
-  try {
-    const r = await fetch(`${API}/api/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text })
-    });
-    if (!r.ok) throw new Error("TTS server error");
-    const blob = await r.blob();
-    const url  = URL.createObjectURL(blob);
-    currentAudio = new Audio(url);
-    currentAudio.onended = () => {
-      URL.revokeObjectURL(url);
-      currentAudio = null;
-      dot.innerHTML = "";
-    };
-    // iOS requires play() called in user-gesture context or after AudioContext unlock
-    const playPromise = currentAudio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // Autoplay blocked — fallback to Web Speech
-        dot.innerHTML = "";
-        const utt = new SpeechSynthesisUtterance(text);
-        utt.lang = "en-US"; utt.rate = 0.85;
-        window.speechSynthesis.speak(utt);
+
+  // iOS Safari fix: use AudioContext.decodeAudioData + BufferSource
+  // This is the only reliable method on iOS — Audio() from blob URL is blocked
+  if (audioCtx) {
+    try {
+      if (audioCtx.state === "suspended") await audioCtx.resume();
+      const r = await fetch(`${API}/api/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
       });
+      if (!r.ok) throw new Error("TTS error");
+      const arrayBuf = await r.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      const source   = audioCtx.createBufferSource();
+      source.buffer  = audioBuf;
+      source.connect(audioCtx.destination);
+      source.onended = () => { dot.innerHTML = ""; };
+      source.start(0);
+      // store as pseudo-object so stopAudio() can stop it
+      currentAudio = { pause: () => { try { source.stop(); } catch(e){} }, src: "" };
+      return;
+    } catch(e) {
+      // fall through to Web Speech fallback
     }
-  } catch(e) {
-    // Fallback to Web Speech API
-    dot.innerHTML = "";
+  }
+
+  // Fallback: Web Speech API (works on all platforms when AudioContext unavailable)
+  dot.innerHTML = "";
+  try {
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = "en-US"; utt.rate = 0.85;
+    utt.onend = () => { dot.innerHTML = ""; };
     window.speechSynthesis.speak(utt);
+  } catch(e) {
+    dot.innerHTML = "";
   }
 }
 
@@ -941,15 +944,8 @@ function submitAnswer() {
     addMissed(currentWord);
     if (mode !== "review") updateAdaptive(false);
 
-    // Announce then spell letters
-    speak(ttsIncorrect(correct)).then
-      ? speak(ttsIncorrect(correct))
-      : speak(ttsIncorrect(correct));
-    if (spellEnabled) {
-      setTimeout(() => {
-        if (!spellCancelled) speakLetters(correct);
-      }, 1200);
-    }
+    // Announce incorrect then Ava speaks the word (no letter spelling on web)
+    speak(ttsIncorrect(correct));
   }
 
   updateScoreLbl();
