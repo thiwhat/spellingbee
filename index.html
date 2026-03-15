@@ -615,7 +615,7 @@
 
 <script>
 // ── Constants ──────────────────────────────────────────────────────────────────
-const VERSION = "2.2.0-web";
+const VERSION = "1.0.2-web";
 const API     = "";  // same origin; set to "http://localhost:8000" for local dev
 
 const WORD_SETS = {
@@ -653,6 +653,7 @@ let switching    = false;
 let spellCancelled = false;
 let currentAudio   = null;   // Audio object playing now
 let currentUtter   = null;   // SpeechSynthesisUtterance for spelling
+let audioCtx       = null;   // AudioContext — unlocked on first user tap (iOS fix)
 
 // ── Profiles (localStorage) ────────────────────────────────────────────────────
 function blankProfile(name) {
@@ -729,7 +730,21 @@ function stopAudio() {
   window.speechSynthesis && window.speechSynthesis.cancel();
 }
 
+// ── iOS AudioContext unlock ────────────────────────────────────────────────────
+// iOS Safari blocks audio until user touches screen. We create & resume an
+// AudioContext on the first tap anywhere, then reuse it for all playback.
+function unlockAudio() {
+  if (audioCtx) return;
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch(e) {}
+}
+document.addEventListener("touchstart", unlockAudio, { once: true });
+document.addEventListener("mousedown",  unlockAudio, { once: true });
+
 async function speak(text) {
+  unlockAudio();   // ensure AudioContext is alive before fetching
   stopAudio();
   spellCancelled = false;
   const dot = document.getElementById("status-line");
@@ -749,7 +764,17 @@ async function speak(text) {
       currentAudio = null;
       dot.innerHTML = "";
     };
-    currentAudio.play();
+    // iOS requires play() called in user-gesture context or after AudioContext unlock
+    const playPromise = currentAudio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Autoplay blocked — fallback to Web Speech
+        dot.innerHTML = "";
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = "en-US"; utt.rate = 0.85;
+        window.speechSynthesis.speak(utt);
+      });
+    }
   } catch(e) {
     // Fallback to Web Speech API
     dot.innerHTML = "";
@@ -869,13 +894,13 @@ async function repeatWord()     { if (currentWord) speak(ttsRepeat(currentWord))
 async function showDefinition() {
   if (!currentWord) return;
   const text = ttsDef(currentWord);
-  setHint(currentWord.definition, false);
+  setHint(currentWord.definition, true);
   speak(text);
 }
 async function showSentence() {
   if (!currentWord) return;
   const text = ttsSent(currentWord);
-  setHint(currentWord.sentence, false);
+  setHint(currentWord.sentence, true);
   speak(text);
 }
 

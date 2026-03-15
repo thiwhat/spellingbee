@@ -1,0 +1,105 @@
+═══════════════════════════════════════════════════════════════
+  SPELLING BEE TRAINER — Twin Edition
+  Version Log
+═══════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────────────
+  WINDOWS
+─────────────────────────────────────────────────────────────
+
+v2.2.0  (2026)                                   [CURRENT]
+  UI Polish — แก้เฉพาะ visual/style ไม่แตะ functionality
+  • ปุ่มกลาง 6 ปุ่ม — แยกสีตามกลุ่ม
+      Submit:              #2E7D32 เขียวเข้ม (primary — เหมือนเดิม)
+      Hear/Repeat/Next:    #FFE0B2 amber อ่อน (audio/nav group)
+      Definition/Sentence: #BBDEFB blue อ่อน (hint group)
+  • Profile bar — ลด visual noise
+      Stats text: #5D4037 → #8D6E63 (อ่อนลง)
+      Stats font: 10 → 9
+      Separator:  สีจาง #BCB0A0 แยกจาก text
+  • C_OK (ข้อความถูก): #4CAF50 → #2E7D32 (contrast สูงขึ้นบนพื้นครีม)
+  • Progress bar:
+      สูง: 10px → 18px
+      Border: ไม่มี → #B0B0B0 1px
+      Fill: #4CAF50 → #43A047
+      Background: #E0E0E0 → #D7CFC4 (cream theme)
+      Corner: flat → rounded 4px
+      เพิ่ม % text ตรงกลาง (font 9, bold)
+  File: beetrainer.py
+
+v2.1.0  (2026)
+  • เสียงสะกดทีละตัวหลังตอบผิด (win32com SAPI)
+  • หลังสะกดจบ Ava Neural TTS พูดทวนคำอีกครั้ง
+  • ยกเลิกการสะกดทันทีเมื่อกด Next Word / เปลี่ยน mode / word set
+  • Review Missed tab enable/disable อัตโนมัติ
+  • Auto-return กลับ mode เดิมเมื่อ Review ว่าง
+  • Missed words boost 3× ใน pool
+  • Twin Turn: รอกด Next Word ก่อนสลับผู้เล่น
+  File: beetrainer.py
+
+v2.0.0  (2025)
+  • Dual player profiles (Twin P / Twin Q — แก้ชื่อได้)
+  • Per-player missed/passed/stats/adaptive แยกกัน
+  • Practice / Competition / Review Missed modes
+  • Word-set selector: General (819) / Trap (222) / Final (225)
+  • Progress bar per player per word set + Reset Progress
+  • edge-tts Neural American voice (Ava) + prefetch cache
+  • Adaptive difficulty: Beginner → Intermediate → Advanced
+  • Twin Turn: Manual / AUTO
+  File: beetrainer.py
+
+─────────────────────────────────────────────────────────────
+  macOS
+─────────────────────────────────────────────────────────────
+
+v1.0.0-mac  (2026)                               [CURRENT]
+  Port จาก Windows v2.1.0
+  • เสียงสะกด: win32com SAPI → macOS built-in 'say' command
+  • Launcher: .vbs/.bat → .command/.sh
+  • detection 'say': ใช้ shutil.which (ไม่มีเสียง ไม่มี subprocess)
+  • stop(): proc.kill() บน Popen object (ไม่ใช้ pkill)
+  • pygame: pre_init(44100, -16, 2, 512) — Apple Silicon fix
+  • Tkinter: bind <Option-x> คู่กับ <Alt-x> ทุกปุ่ม
+  • Tkinter: bind <Meta-z/x> คู่กับ <Control-z/x> (Cmd key)
+  • asyncio: WindowsSelectorEventLoopPolicy ใช้ hasattr() guard
+  หมายเหตุ: UI changes จาก Windows v2.2.0 ยังไม่ได้ port
+  File: beetrainer_mac.py
+
+─────────────────────────────────────────────────────────────
+  Web (Render — https://spellingbee-nlw4.onrender.com)
+─────────────────────────────────────────────────────────────
+
+v1.0.2-web  (2026)                               [CURRENT]
+  • แก้ hint (Definition/Sentence) hidden by default
+      setHint(text, false) → setHint(text, true)
+      ต้องกด Reveal ถึงจะเห็นข้อความ
+  File: spellingbee-web/index.html
+
+v1.0.1-web  (2026)
+  • แก้ iOS Safari ไม่มีเสียง
+      สร้าง AudioContext บน first user tap (iOS requirement)
+      play() ใช้ Promise.catch() → fallback Web Speech ถ้า block
+      เพิ่ม unlockAudio() bind touchstart + mousedown
+  File: spellingbee-web/index.html
+
+v1.0.0-web  (2026)
+  Port จาก Windows v2.2.0 เป็น Web app
+  Backend:  FastAPI (main.py) — edge-tts + serve CSV
+  Frontend: HTML ไฟล์เดียว (index.html)
+  Hosting:  Render (free tier)
+  TTS:      edge-tts Neural Ava ผ่าน server
+            fallback: Web Speech API (offline)
+  Profile:  localStorage (ต่างเครื่องไม่ข้ามกัน)
+  Features: Word sets / Modes / Twin Turn / Adaptive
+            Profile P1-P2 / Missed-Passed / Progress bar
+  Files: spellingbee-web/index.html, main.py, requirements.txt
+
+═══════════════════════════════════════════════════════════════
+  PENDING / ROADMAP
+═══════════════════════════════════════════════════════════════
+
+  [ ] Port UI changes จาก Windows v2.2.0 → macOS v1.1.0-mac
+  [ ] Web: แก้ iOS audio หลัง deploy ใหม่ (ทดสอบ iPhone)
+  [ ] Web: cross-device profile (ต้องการ login system)
+
+═══════════════════════════════════════════════════════════════
